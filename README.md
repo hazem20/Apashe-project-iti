@@ -9,9 +9,5 @@ This repository contains an Ansible playbook designed to configure Apache (httpd
 - **Virtual Host Configuration with Logging**: Sets up virtual hosts with dedicated error and access logs.
 - **Password-Protected Directories**: Creates private directories under each virtual host with basic authentication.
 
-## Requirements
 
-- **Ansible**: Make sure Ansible is installed on your control machine. You can install it using:
-  ```bash
-  sudo apt update
-  sudo apt install ansible
+
