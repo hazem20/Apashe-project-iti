@@ -1,0 +1,71 @@
+---
+    - name: Configure SELinux to allow httpd to listen on port 88
+      command: semanage port -a -t http_port_t -p tcp {{ httpd_port }}
+      ignore_errors: true  # Ignore errors if port is already configured
+      
+    - name: Configure Apache Directory Directive to Restrict Access by IP
+      blockinfile:
+        path: "/etc/httpd/conf.d/ip_restrict.conf"
+        block: |
+          <Directory "/var/www/{{ hostname }}/private">
+              Require ip {{ allowed_ip }}
+          </Directory>
+      notify: Restart httpd
+
+    - name: Create DocumentRoot directory for VirtualHost
+      file:
+        path: "/var/www/{{ hostname }}"
+        state: directory
+        owner: apache
+        group: apache
+        mode: '0755'
+
+    - name: Configure VirtualHost with separate log files
+      blockinfile:
+        path: "/etc/httpd/conf.d/{{ hostname }}.conf"
+        block: |
+          <VirtualHost *:{{ httpd_port }}>
+              ServerName {{ hostname }}
+              DocumentRoot "/var/www/{{ hostname }}"
+              ErrorLog "/var/log/httpd/{{ hostname }}_error.log"
+              CustomLog "/var/log/httpd/{{ hostname }}_access.log" combined
+
+              <Directory "/var/www/{{ hostname }}/private">
+                  AuthType Basic
+                  AuthName "Restricted Area"
+                  AuthUserFile "/etc/httpd/.htpasswd_{{ hostname }}"
+                  Require valid-user
+              </Directory>
+          </VirtualHost>
+      notify: Restart httpd
+
+    - name: Create private directory under DocumentRoot
+      file:
+        path: "/var/www/{{ hostname }}/private"
+        state: directory
+        owner: apache
+        group: apache
+        mode: '0755'
+
+    - name: Create .htaccess file in private directory for authentication
+      copy:
+        dest: "/var/www/{{ hostname }}/private/.htaccess"
+        content: |
+          AuthType Basic
+          AuthName "Restricted Area"
+          AuthUserFile "/etc/httpd/.htpasswd_{{ hostname }}"
+          Require valid-user
+        owner: apache
+        group: apache
+        mode: '0644'
+
+    - name: Create .htpasswd file for authentication
+      command: "htpasswd -cb /etc/httpd/.htpasswd_{{ hostname }} user password"
+      args:
+        creates: "/etc/httpd/.htpasswd_{{ hostname }}"  # Only create if file doesn't exist
+
+  handlers:
+    - name: Restart httpd
+      service:
+        name: httpd
+        state: restarted

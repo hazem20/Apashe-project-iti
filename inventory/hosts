@@ -1,0 +1,2 @@
+[webservers]
+192.168.126.132  ansible_user=devops
